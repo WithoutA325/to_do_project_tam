@@ -1,10 +1,10 @@
 class Task {
   final String title;
   final String deadline;
-  final bool done;
+  bool done;
   final String priority;
 
-  const Task({
+  Task({
     required this.title,
     required this.deadline,
     required this.done,
@@ -15,25 +15,25 @@ class Task {
 class TaskRepository {
   static List<Task> tasks = [
     Task(
-      title:"Prezentacją na TAM",
-      deadline:"jutro",
+      title: "Prezentacją na TAM",
+      deadline: "jutro",
       done: false,
-      priority:"wysoki",
+      priority: "wysoki",
     ),
     Task(
-      title:"Raport z labów na AISO",
-      deadline:"dzisiaj",
+      title: "Raport z labów na AISO",
+      deadline: "dzisiaj",
       done: true,
-      priority:"wysoki",
+      priority: "wysoki",
     ),
     Task(
-      title:"Nauka na kolokwium z matematyki",
-      deadline:"za 7 dni",
+      title: "Nauka na kolokwium z matematyki",
+      deadline: "za 7 dni",
       done: false,
       priority: "niski",
     ),
     Task(
-      title:"Przeczytać dokumentację do projektu z Fluttera",
+      title: "Przeczytać dokumentację do projektu z Fluttera",
       deadline: "za 3 dni",
       done: false,
       priority: "niski",
