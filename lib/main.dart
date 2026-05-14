@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'task_repository.dart';
-import 'task_api_service.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'task.dart';
+import 'task_local_database.dart';
+import 'task_sync_service.dart';
+import 'dart:math';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox("tasks");
   runApp(const MyApp());
 }
 
@@ -14,7 +20,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.purple,
         useMaterial3: true,
       ),
       home: const HomeScreen(),
@@ -38,7 +44,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    tasksFuture = TaskApiService.fetchTasks();
+    tasksFuture = loadTasks();
+  }
+
+
+  Future<List<Task>> loadTasks() async {
+
+    await TaskSyncService
+        .loadInitialDataIfNeeded();
+
+    return TaskLocalDatabase.getTasks();
   }
 
   Future<void> _openAddTaskScreen() async {
@@ -71,8 +86,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (newTask != null) {
+
+      await TaskLocalDatabase.addTask(newTask);
+
       setState(() {
-        TaskRepository.tasks.add(newTask);
+        tasksFuture = loadTasks();
       });
     }
   }
@@ -90,20 +108,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (updatedTask != null) {
-      setState(() {
-        int originalIndex =
-        TaskRepository.tasks.indexOf(task);
 
-        if (originalIndex != -1) {
-          TaskRepository.tasks[originalIndex] =
-              updatedTask;
-        }
+      await TaskLocalDatabase
+          .updateTask(updatedTask);
+
+      setState(() {
+        tasksFuture = loadTasks();
       });
     }
   }
 
   void _deleteAllTasks() {
-    if (TaskRepository.tasks.isEmpty) {
+    if (TaskLocalDatabase.getTasks().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Lista jest już pusta."),
@@ -125,10 +141,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text("Anuluj"),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                TaskRepository.tasks.clear();
-              });
+            onPressed: () async {
+                await TaskLocalDatabase
+                    .deleteAllTasks();
+
+                setState(() {
+                  tasksFuture = loadTasks();
+                });
 
               Navigator.pop(context);
 
@@ -154,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("KrakFlow"),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Colors.pinkAccent,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -269,11 +288,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
 
-                          onDismissed: (direction) {
-                            setState(() {
-                              filteredTasks.remove(
-                                task,
-                              );
+                          onDismissed: (direction) async {
+                              await TaskLocalDatabase
+                                  .deleteTask(task.id);
+
+                              setState(() {
+                                tasksFuture = loadTasks();
                             });
 
                             ScaffoldMessenger.of(
@@ -292,10 +312,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             subtitle:
                             "termin: ${task.deadline} | priorytet: ${task.priority}",
                             done: task.done,
-                            onChanged: (value) {
+                            onChanged: (value) async {
+
+                              final updatedTask = Task(
+                                id: task.id,
+                                title: task.title,
+                                deadline: task.deadline,
+                                priority: task.priority,
+                                done: value ?? false,
+                              );
+
+                              await TaskLocalDatabase
+                                  .updateTask(updatedTask);
+
                               setState(() {
-                                task.done =
-                                    value ?? false;
+                                tasksFuture = loadTasks();
                               });
                             },
                             onTap: () =>
@@ -330,14 +361,14 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() => selectedFilter = filter),
       style: TextButton.styleFrom(
         backgroundColor: isActive
-            ? Colors.blue.withValues(alpha: 0.1)
+            ? Colors.purple.withValues(alpha: 0.1)
             : null,
       ),
       child: Text(
         filter.toUpperCase(),
         style: TextStyle(
           color:
-          isActive ? Colors.blue : Colors.grey,
+          isActive ? Colors.purple : Colors.grey,
           fontWeight: isActive
               ? FontWeight.bold
               : FontWeight.normal,
@@ -402,6 +433,7 @@ class _AddTaskScreenState
     Navigator.pop(
       context,
       Task(
+        id: Random().nextInt(1000000),
         title: title,
         deadline: deadline,
         done: false,
@@ -557,6 +589,7 @@ class _EditTaskScreenState
                   Navigator.pop(
                     context,
                     Task(
+                      id: widget.task.id,
                       title: titleController.text,
                       deadline:
                       deadlineController.text,

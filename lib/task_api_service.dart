@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
-import 'task_repository.dart';
+import 'task.dart';
 
 class TaskApiService {
   static const String baseUrl = "https://dummyjson.com";
@@ -28,6 +28,7 @@ class TaskApiService {
 
       return todos.map((todo) {
         return Task(
+          id: todo["id"],
           title: todo["todo"],
           deadline: deadlines[random.nextInt(deadlines.length)],
           done: todo["completed"],
